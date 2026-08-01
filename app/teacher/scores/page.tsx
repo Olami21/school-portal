@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 type Option = { id: string; name: string };
+type Subject = { id: string; name: string; level: string };
 type Student = { id: string; full_name: string; admission_no: string };
 
 export default function ScoreEntryPage() {
   const [terms, setTerms] = useState<Option[]>([]);
   const [classes, setClasses] = useState<Option[]>([]);
-  const [subjects, setSubjects] = useState<Option[]>([]);
+  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
+  const [visibleSubjects, setVisibleSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
 
   const [termId, setTermId] = useState('');
@@ -27,40 +29,50 @@ export default function ScoreEntryPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Load dropdown options once
   useEffect(() => {
     const loadOptions = async () => {
       const { data: termData } = await supabase.from('terms').select('id, name').order('name');
       const { data: classData } = await supabase.from('classes').select('id, name').order('name');
-      const { data: subjectData } = await supabase.from('subjects').select('id, name').order('name');
+      const { data: subjectData } = await supabase.from('subjects').select('id, name, level').order('name');
 
       setTerms(termData || []);
       setClasses(classData || []);
-      setSubjects(subjectData || []);
+      setAllSubjects(subjectData || []);
     };
     loadOptions();
   }, []);
 
-  // Load students whenever class changes
+  // Filter subjects whenever class changes, and load that class's students
   useEffect(() => {
     if (!classId) {
       setStudents([]);
+      setVisibleSubjects([]);
       return;
     }
+
+    const selectedClass = classes.find((c) => c.id === classId);
+    const isJunior = selectedClass?.name?.toUpperCase().startsWith('JSS');
+    const isSenior = selectedClass?.name?.toUpperCase().startsWith('SSS') || selectedClass?.name?.toUpperCase().startsWith('SS');
+
+    const filtered = allSubjects.filter((s) => {
+      if (s.level === 'both') return true;
+      if (isJunior) return s.level === 'junior';
+      if (isSenior) return s.level === 'senior';
+      return true; // fallback: show everything if class name doesn't match a known pattern
+    });
+    setVisibleSubjects(filtered);
+    setSubjectId('');
+
     const loadStudents = async () => {
       const { data } = await supabase
         .from('class_enrollments')
         .select('student_id, students(id, full_name, admission_no)')
         .eq('class_id', classId);
 
-      const studentList = (data || [])
-        .map((row: any) => row.students)
-        .filter(Boolean);
-
-      setStudents(studentList);
+      setStudents((data || []).map((row: any) => row.students).filter(Boolean));
     };
     loadStudents();
-  }, [classId]);
+  }, [classId, classes, allSubjects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +93,7 @@ export default function ScoreEntryPage() {
     ];
 
     for (const c of components) {
-      if (c.score === '') continue; // allow partial entry (e.g. only CA1 so far)
+      if (c.score === '') continue;
 
       const { error: upsertError } = await supabase
         .from('score_components')
@@ -113,10 +125,7 @@ export default function ScoreEntryPage() {
 
   return (
     <div style={{ maxWidth: '500px', margin: '40px auto', padding: '20px' }}>
-      <button
-        onClick={() => router.push('/teacher')}
-        style={{ marginBottom: '20px', padding: '8px 16px' }}
-      >
+      <button onClick={() => router.push('/teacher')} style={{ marginBottom: '20px', padding: '8px 16px' }}>
         ← Back to Dashboard
       </button>
 
@@ -125,104 +134,58 @@ export default function ScoreEntryPage() {
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '15px' }}>
           <label>Term</label>
-          <select
-            value={termId}
-            onChange={(e) => setTermId(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-          >
+          <select value={termId} onChange={(e) => setTermId(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
             <option value="">Select Term</option>
-            {terms.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
+            {terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
 
         <div style={{ marginBottom: '15px' }}>
           <label>Class</label>
-          <select
-            value={classId}
-            onChange={(e) => { setClassId(e.target.value); setStudentId(''); }}
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-          >
+          <select value={classId} onChange={(e) => setClassId(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
             <option value="">Select Class</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+            {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
 
         <div style={{ marginBottom: '15px' }}>
           <label>Student</label>
-          <select
-            value={studentId}
-            onChange={(e) => setStudentId(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-          >
+          <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
             <option value="">Select Student</option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>{s.full_name} ({s.admission_no})</option>
-            ))}
+            {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_no})</option>)}
           </select>
         </div>
 
         <div style={{ marginBottom: '15px' }}>
           <label>Subject</label>
-          <select
-            value={subjectId}
-            onChange={(e) => setSubjectId(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-          >
+          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
             <option value="">Select Subject</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
+            {visibleSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
           <div style={{ flex: 1 }}>
             <label>1st CA (20)</label>
-            <input
-              type="number"
-              value={ca1}
-              onChange={(e) => setCa1(e.target.value)}
-              min="0"
-              max="20"
-              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-            />
+            <input type="number" value={ca1} onChange={(e) => setCa1(e.target.value)} min="0" max="20"
+              style={{ width: '100%', padding: '8px', marginTop: '5px' }} />
           </div>
           <div style={{ flex: 1 }}>
             <label>2nd CA (20)</label>
-            <input
-              type="number"
-              value={ca2}
-              onChange={(e) => setCa2(e.target.value)}
-              min="0"
-              max="20"
-              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-            />
+            <input type="number" value={ca2} onChange={(e) => setCa2(e.target.value)} min="0" max="20"
+              style={{ width: '100%', padding: '8px', marginTop: '5px' }} />
           </div>
           <div style={{ flex: 1 }}>
             <label>Exam (60)</label>
-            <input
-              type="number"
-              value={exam}
-              onChange={(e) => setExam(e.target.value)}
-              min="0"
-              max="60"
-              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-            />
+            <input type="number" value={exam} onChange={(e) => setExam(e.target.value)} min="0" max="60"
+              style={{ width: '100%', padding: '8px', marginTop: '5px' }} />
           </div>
         </div>
 
         {error && <p style={{ color: 'red', marginBottom: '10px' }}>{error}</p>}
         {success && <p style={{ color: 'green', marginBottom: '10px' }}>{success}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ width: '100%', padding: '10px', background: '#000', color: '#fff' }}
-        >
+        <button type="submit" disabled={loading} style={{ width: '100%', padding: '10px', background: '#000', color: '#fff' }}>
           {loading ? 'Saving...' : 'Save Scores'}
         </button>
       </form>
