@@ -40,19 +40,30 @@ export default function AdminDashboard() {
 
   if (loading) return <p style={{ padding: '40px' }}>Loading...</p>;
 
+  const links = [
+    { label: 'Students List', path: '/admin/students-list' },
+    { label: 'Add Student', path: '/admin/students' },
+    { label: 'Create Student Login', path: '/admin/student-login' },
+    { label: 'Add Teacher', path: '/admin/teachers' },
+    { label: 'Print Result', path: '/admin/print-result' },
+  ];
+
   return (
     <div style={{ padding: '40px' }}>
       <h1 style={{ fontSize: '24px', marginBottom: '20px' }}>
         Admin Dashboard — Welcome, {fullName}
       </h1>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-        <button
-          onClick={() => router.push('/admin/students-list')}
-          style={{ padding: '10px 20px', background: '#000', color: '#fff' }}
-        >
-          Students
-        </button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '30px' }}>
+        {links.map((link) => (
+          <button
+            key={link.path}
+            onClick={() => router.push(link.path)}
+            style={{ padding: '12px 20px', background: '#000', color: '#fff' }}
+          >
+            {link.label}
+          </button>
+        ))}
       </div>
 
       <button
