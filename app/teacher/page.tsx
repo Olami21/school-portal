@@ -47,18 +47,15 @@ export default function TeacherDashboard() {
       </h1>
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-        <button
-          onClick={() => router.push('/teacher/scores')}
-          style={{ padding: '10px 20px', background: '#000', color: '#fff' }}
-        >
+        <button onClick={() => router.push('/teacher/scores')} style={{ padding: '10px 20px', background: '#000', color: '#fff' }}>
           Enter Scores
+        </button>
+        <button onClick={() => router.push('/teacher/comments')} style={{ padding: '10px 20px', background: '#000', color: '#fff' }}>
+          Add Comment
         </button>
       </div>
 
-      <button
-        onClick={handleLogout}
-        style={{ padding: '10px 20px', background: '#333', color: '#fff' }}
-      >
+      <button onClick={handleLogout} style={{ padding: '10px 20px', background: '#333', color: '#fff' }}>
         Log Out
       </button>
     </div>

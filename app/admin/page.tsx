@@ -46,6 +46,7 @@ export default function AdminDashboard() {
     { label: 'Create Student Login', path: '/admin/student-login' },
     { label: 'Add Teacher', path: '/admin/teachers' },
     { label: 'Print Result', path: '/admin/print-result' },
+    { label: 'School Settings', path: '/admin/settings' },
   ];
 
   return (
@@ -66,10 +67,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <button
-        onClick={handleLogout}
-        style={{ padding: '10px 20px', background: '#333', color: '#fff' }}
-      >
+      <button onClick={handleLogout} style={{ padding: '10px 20px', background: '#333', color: '#fff' }}>
         Log Out
       </button>
     </div>
