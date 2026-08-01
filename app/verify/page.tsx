@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-export default function VerifyPage() {
+function VerifyContent() {
   const searchParams = useSearchParams();
   const studentId = searchParams.get('student');
   const termId = searchParams.get('term');
@@ -79,5 +79,13 @@ export default function VerifyPage() {
       <p><strong>Grand Total:</strong> {grandTotal}</p>
       <p><strong>Average:</strong> {average}%</p>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<p style={{ padding: '40px', textAlign: 'center' }}>Loading...</p>}>
+      <VerifyContent />
+    </Suspense>
   );
 }
