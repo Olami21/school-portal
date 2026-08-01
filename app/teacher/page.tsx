@@ -53,6 +53,9 @@ export default function TeacherDashboard() {
         <button onClick={() => router.push('/teacher/comments')} style={{ padding: '10px 20px', background: '#000', color: '#fff' }}>
           Add Comment
         </button>
+        <button onClick={() => router.push('/teacher/print-result')} style={{ padding: '10px 20px', background: '#000', color: '#fff' }}>
+          Print Result
+        </button>
       </div>
 
       <button onClick={handleLogout} style={{ padding: '10px 20px', background: '#333', color: '#fff' }}>
