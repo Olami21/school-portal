@@ -35,6 +35,7 @@ export default function TeacherDashboard() {
     { title: 'Add Student', desc: 'Register a new student and assign their class.', path: '/teacher/students' },
     { title: 'Enter Scores', desc: 'Record CA1, CA2, and Exam scores per subject.', path: '/teacher/scores' },
     { title: 'Add Comment', desc: 'Write a short remark for a student\'s result.', path: '/teacher/comments' },
+    { title: 'Promote Students', desc: 'Move students to a new class and session.', path: '/teacher/promote' },
     { title: 'Print Result', desc: 'Generate a printable, QR-verified result sheet.', path: '/teacher/print-result' },
   ];
 
@@ -51,13 +52,9 @@ export default function TeacherDashboard() {
               <p className="text-navy-300 text-xs leading-tight">Teacher Portal</p>
             </div>
           </div>
-
           <div className="flex items-center gap-4">
             <span className="hidden sm:inline text-navy-200 text-sm">Welcome, {fullName}</span>
-            <button
-              onClick={handleLogout}
-              className="text-xs font-medium border border-gold-500 text-gold-300 hover:bg-gold-500 hover:text-navy-950 rounded-lg px-3 py-1.5 transition-colors"
-            >
+            <button onClick={handleLogout} className="text-xs font-medium border border-gold-500 text-gold-300 hover:bg-gold-500 hover:text-navy-950 rounded-lg px-3 py-1.5 transition-colors">
               Log Out
             </button>
           </div>
@@ -70,17 +67,11 @@ export default function TeacherDashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cards.map((c) => (
-            <button
-              key={c.path}
-              onClick={() => router.push(c.path)}
-              className="group text-left bg-white rounded-xl border border-gray-200 hover:border-gold-500 hover:shadow-lg transition-all p-5 relative overflow-hidden"
-            >
+            <button key={c.path} onClick={() => router.push(c.path)} className="group text-left bg-white rounded-xl border border-gray-200 hover:border-gold-500 hover:shadow-lg transition-all p-5 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-navy-900 to-gold-500" />
               <h3 className="font-display text-lg text-navy-900 mb-1">{c.title}</h3>
               <p className="text-sm text-slate mb-4">{c.desc}</p>
-              <span className="text-xs font-medium text-gold-600 group-hover:translate-x-1 transition-transform inline-block">
-                Open →
-              </span>
+              <span className="text-xs font-medium text-gold-600 group-hover:translate-x-1 transition-transform inline-block">Open →</span>
             </button>
           ))}
         </div>

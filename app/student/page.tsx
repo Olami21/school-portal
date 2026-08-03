@@ -13,16 +13,21 @@ type ScoreRow = {
   grade: string;
   remark: string;
 };
+type TermOption = { id: string; label: string };
 
 export default function StudentResultsPage() {
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
+  const [studentDbId, setStudentDbId] = useState('');
+  const [terms, setTerms] = useState<TermOption[]>([]);
+  const [selectedTermId, setSelectedTermId] = useState('');
   const [rows, setRows] = useState<ScoreRow[]>([]);
   const [error, setError] = useState('');
   const router = useRouter();
 
+  // Initial load: confirm role, get student id, load term list, default to active term
   useEffect(() => {
-    const load = async () => {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
@@ -34,16 +39,38 @@ export default function StudentResultsPage() {
       const { data: student } = await supabase
         .from('students').select('id').eq('profile_id', user.id).single();
       if (!student) { setError('Student record not found.'); setLoading(false); return; }
+      setStudentDbId(student.id);
 
-      const { data: term } = await supabase
-        .from('terms').select('id').eq('is_active', true).single();
-      if (!term) { setError('No active term set.'); setLoading(false); return; }
+      const { data: termData } = await supabase
+        .from('terms')
+        .select('id, name, is_active, sessions(name)')
+        .order('name');
+
+      const termOptions: TermOption[] = (termData || []).map((t: any) => ({
+        id: t.id,
+        label: `${t.sessions?.name || ''} — ${t.name} Term`,
+      }));
+      setTerms(termOptions);
+
+      const active = (termData || []).find((t: any) => t.is_active);
+      setSelectedTermId(active?.id || termOptions[0]?.id || '');
+    };
+    init();
+  }, [router]);
+
+  // Load scores whenever the selected term changes
+  useEffect(() => {
+    if (!studentDbId || !selectedTermId) return;
+
+    const loadScores = async () => {
+      setLoading(true);
+      setError('');
 
       const { data: components, error: compError } = await supabase
         .from('score_components')
         .select('component, score, max_score, subject_id, subjects(name)')
-        .eq('student_id', student.id)
-        .eq('term_id', term.id);
+        .eq('student_id', studentDbId)
+        .eq('term_id', selectedTermId);
 
       if (compError) { setError(compError.message); setLoading(false); return; }
 
@@ -72,8 +99,8 @@ export default function StudentResultsPage() {
       setRows(result);
       setLoading(false);
     };
-    load();
-  }, [router]);
+    loadScores();
+  }, [studentDbId, selectedTermId]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -91,10 +118,6 @@ export default function StudentResultsPage() {
     return 'bg-red-100 text-red-700';
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-paper flex items-center justify-center text-slate">Loading...</div>;
-  }
-
   return (
     <div className="min-h-screen bg-paper">
       <header className="bg-navy-900">
@@ -108,30 +131,45 @@ export default function StudentResultsPage() {
               <p className="text-navy-300 text-xs leading-tight">Student Portal</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-xs font-medium border border-gold-500 text-gold-300 hover:bg-gold-500 hover:text-navy-950 rounded-lg px-3 py-1.5 transition-colors"
-          >
-            Log Out
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/student/fees')} className="text-xs font-medium text-gold-300 hover:text-gold-200">
+              My Fees
+            </button>
+            <button onClick={handleLogout} className="text-xs font-medium border border-gold-500 text-gold-300 hover:bg-gold-500 hover:text-navy-950 rounded-lg px-3 py-1.5 transition-colors">
+              Log Out
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="font-display text-2xl text-navy-900 mb-1">My Results</h1>
-        <p className="text-slate text-sm mb-6">{fullName}</p>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+          <div>
+            <h1 className="font-display text-2xl text-navy-900 mb-1">My Results</h1>
+            <p className="text-slate text-sm">{fullName}</p>
+          </div>
+          <div className="w-full sm:w-64">
+            <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Term</label>
+            <select
+              value={selectedTermId}
+              onChange={(e) => setSelectedTermId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gold-500"
+            >
+              {terms.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+        </div>
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-        )}
+        {loading && <p className="text-slate text-sm">Loading...</p>}
+        {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
-        {!error && rows.length === 0 && (
+        {!loading && !error && rows.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-slate text-sm">
-            No scores entered yet for this term.
+            No scores recorded for this term.
           </div>
         )}
 
-        {!error && rows.length > 0 && (
+        {!loading && !error && rows.length > 0 && (
           <>
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
               <div className="overflow-x-auto">
@@ -156,9 +194,7 @@ export default function StudentResultsPage() {
                         <td className="text-center px-3 py-3 text-slate">{r.exam ?? '–'}</td>
                         <td className="text-center px-3 py-3 font-semibold text-navy-900">{r.total}</td>
                         <td className="text-center px-3 py-3">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${gradeColor(r.grade)}`}>
-                            {r.grade}
-                          </span>
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${gradeColor(r.grade)}`}>{r.grade}</span>
                         </td>
                         <td className="px-4 py-3 font-sans text-slate">{r.remark}</td>
                       </tr>
