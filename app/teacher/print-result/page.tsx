@@ -6,15 +6,8 @@ import { supabase } from '@/lib/supabase';
 
 type Option = { id: string; name: string };
 type ScoreRow = {
-  subject_name: string;
-  subject_id: string;
-  ca1: number | null;
-  ca2: number | null;
-  exam: number | null;
-  total: number;
-  grade: string;
-  remark: string;
-  classHighest: number | null;
+  subject_name: string; subject_id: string; ca1: number | null; ca2: number | null; exam: number | null;
+  total: number; grade: string; remark: string; classHighest: number | null;
 };
 
 function principalComment(average: number): string {
@@ -25,12 +18,11 @@ function principalComment(average: number): string {
   return 'Poor performance. Serious improvement is needed next term.';
 }
 
-export default function TeacherPrintResultPage() {
+export default function PrintResultPage() {
   const [students, setStudents] = useState<{ id: string; full_name: string; admission_no: string }[]>([]);
   const [terms, setTerms] = useState<Option[]>([]);
   const [studentId, setStudentId] = useState('');
   const [termId, setTermId] = useState('');
-
   const [studentInfo, setStudentInfo] = useState<any>(null);
   const [rows, setRows] = useState<ScoreRow[]>([]);
   const [teacherComment, setTeacherComment] = useState('');
@@ -42,10 +34,8 @@ export default function TeacherPrintResultPage() {
     const loadOptions = async () => {
       const { data: studentData } = await supabase.from('students').select('id, full_name, admission_no').order('full_name');
       setStudents(studentData || []);
-
       const { data: termData } = await supabase.from('terms').select('id, name').order('name');
       setTerms(termData || []);
-
       const { data: schoolData } = await supabase.from('school_settings').select('*').single();
       setSchool(schoolData);
     };
@@ -54,31 +44,16 @@ export default function TeacherPrintResultPage() {
 
   const handleGenerate = async () => {
     if (!studentId || !termId) return;
-
-    const { data: student } = await supabase
-      .from('students')
-      .select('full_name, admission_no, gender')
-      .eq('id', studentId)
-      .single();
+    const { data: student } = await supabase.from('students').select('full_name, admission_no, gender').eq('id', studentId).single();
     setStudentInfo(student);
 
     const { data: term } = await supabase.from('terms').select('session_id').eq('id', termId).single();
-
-    const { data: enrollment } = await supabase
-      .from('class_enrollments')
-      .select('class_id')
-      .eq('student_id', studentId)
-      .eq('session_id', term?.session_id)
-      .single();
-
+    const { data: enrollment } = await supabase.from('class_enrollments').select('class_id').eq('student_id', studentId).eq('session_id', term?.session_id).single();
     const classId = enrollment?.class_id;
 
     const { data: components } = await supabase
-      .from('score_components')
-      .select('component, score, subject_id, subjects(name)')
-      .eq('student_id', studentId)
-      .eq('term_id', termId);
-
+      .from('score_components').select('component, score, subject_id, subjects(name)')
+      .eq('student_id', studentId).eq('term_id', termId);
     const { data: gradingScale } = await supabase.from('grading_scale').select('min_score, max_score, grade, remark');
 
     const bySubject: Record<string, any> = {};
@@ -92,11 +67,7 @@ export default function TeacherPrintResultPage() {
 
     let classmateIds: string[] = [];
     if (classId) {
-      const { data: classmates } = await supabase
-        .from('class_enrollments')
-        .select('student_id')
-        .eq('class_id', classId)
-        .eq('session_id', term?.session_id);
+      const { data: classmates } = await supabase.from('class_enrollments').select('student_id').eq('class_id', classId).eq('session_id', term?.session_id);
       classmateIds = (classmates || []).map((c: any) => c.student_id);
     }
 
@@ -104,189 +75,154 @@ export default function TeacherPrintResultPage() {
     for (const [name, vals] of Object.entries(bySubject) as any) {
       const total = (vals.ca1 || 0) + (vals.ca2 || 0) + (vals.exam || 0);
       const band = (gradingScale || []).find((g: any) => total >= g.min_score && total <= g.max_score);
-
       let classHighest: number | null = null;
       if (classmateIds.length > 0) {
-        const { data: classScores } = await supabase
-          .from('score_components')
-          .select('student_id, score')
-          .eq('subject_id', vals.subject_id)
-          .eq('term_id', termId)
-          .in('student_id', classmateIds);
-
+        const { data: classScores } = await supabase.from('score_components').select('student_id, score').eq('subject_id', vals.subject_id).eq('term_id', termId).in('student_id', classmateIds);
         const totalsByStudent: Record<string, number> = {};
-        (classScores || []).forEach((c: any) => {
-          totalsByStudent[c.student_id] = (totalsByStudent[c.student_id] || 0) + c.score;
-        });
+        (classScores || []).forEach((c: any) => { totalsByStudent[c.student_id] = (totalsByStudent[c.student_id] || 0) + c.score; });
         const allTotals = Object.values(totalsByStudent);
         classHighest = allTotals.length > 0 ? Math.max(...allTotals) : null;
       }
-
-      result.push({
-        subject_name: name,
-        subject_id: vals.subject_id,
-        ca1: vals.ca1,
-        ca2: vals.ca2,
-        exam: vals.exam,
-        total,
-        grade: band?.grade || '-',
-        remark: band?.remark || '-',
-        classHighest,
-      });
+      result.push({ subject_name: name, subject_id: vals.subject_id, ca1: vals.ca1, ca2: vals.ca2, exam: vals.exam, total, grade: band?.grade || '-', remark: band?.remark || '-', classHighest });
     }
-
     setRows(result);
 
-    const { data: commentData } = await supabase
-      .from('report_comments')
-      .select('class_teacher_comment')
-      .eq('student_id', studentId)
-      .eq('term_id', termId)
-      .maybeSingle();
+    const { data: commentData } = await supabase.from('report_comments').select('class_teacher_comment').eq('student_id', studentId).eq('term_id', termId).maybeSingle();
     setTeacherComment(commentData?.class_teacher_comment || '');
-
     setLoaded(true);
   };
 
   const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
   const average = rows.length > 0 ? grandTotal / rows.length : 0;
-
-  const verifyUrl =
-    typeof window !== 'undefined' ? `${window.location.origin}/verify?student=${studentId}&term=${termId}` : '';
+  const verifyUrl = typeof window !== 'undefined' ? `${window.location.origin}/verify?student=${studentId}&term=${termId}` : '';
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(verifyUrl)}`;
 
   return (
-    <div style={{ maxWidth: '700px', margin: '20px auto', padding: '20px' }}>
+    <div className="min-h-screen bg-paper">
       <div className="no-print">
-        <button onClick={() => router.push('/teacher')} style={{ marginBottom: '20px', padding: '8px 16px' }}>
-          ← Back to Dashboard
-        </button>
+        <header className="bg-navy-900">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <button onClick={() => router.push('/admin')} className="text-navy-200 hover:text-white text-sm">← Dashboard</button>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-b from-gold-300 to-gold-600 flex items-center justify-center">
+              <span className="font-display font-semibold text-navy-950 text-[9px]">WLMS</span>
+            </div>
+          </div>
+        </header>
 
-        <h1 style={{ fontSize: '22px', marginBottom: '15px' }}>Print Result</h1>
-
-        <div style={{ marginBottom: '10px' }}>
-          <label>Student: </label>
-          <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={{ padding: '6px', marginLeft: '8px' }}>
-            <option value="">Select Student</option>
-            {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_no})</option>)}
-          </select>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+          <h1 className="font-display text-2xl text-navy-900 mb-4">Print Result</h1>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Student</label>
+                <select value={studentId} onChange={(e) => setStudentId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500">
+                  <option value="">Select Student</option>
+                  {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_no})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate uppercase tracking-wide mb-1.5">Term</label>
+                <select value={termId} onChange={(e) => setTermId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500">
+                  <option value="">Select Term</option>
+                  {terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleGenerate} className="flex-1 bg-navy-900 hover:bg-navy-800 text-white font-medium text-sm py-2.5 rounded-lg transition-colors">
+                Generate
+              </button>
+              {loaded && (
+                <button onClick={() => window.print()} className="flex-1 bg-gold-500 hover:bg-gold-600 text-navy-950 font-semibold text-sm py-2.5 rounded-lg transition-colors">
+                  Print / Save as PDF
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label>Term: </label>
-          <select value={termId} onChange={(e) => setTermId(e.target.value)} style={{ padding: '6px', marginLeft: '8px' }}>
-            <option value="">Select Term</option>
-            {terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
-
-        <button onClick={handleGenerate} style={{ padding: '10px 20px', background: '#000', color: '#fff', marginRight: '10px' }}>
-          Generate
-        </button>
-
-        {loaded && (
-          <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#0a0', color: '#fff' }}>
-            Print / Save as PDF
-          </button>
-        )}
-
-        <hr style={{ margin: '20px 0' }} />
       </div>
 
       {loaded && studentInfo && (
-        <div style={{ border: '2px solid #000', padding: '25px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-            {school?.logo_url && <img src={school.logo_url} alt="School Logo" width={60} style={{ marginBottom: '8px' }} />}
-            <h2 style={{ margin: 0 }}>{school?.school_name || 'School Name'}</h2>
-            {school?.address && <p style={{ margin: '4px 0', fontSize: '13px' }}>{school.address}</p>}
-            {(school?.phone || school?.email) && (
-              <p style={{ margin: '4px 0', fontSize: '13px' }}>
-                {school?.phone && `Tel: ${school.phone}`} {school?.email && `| Email: ${school.email}`}
-              </p>
-            )}
-            <h3 style={{ marginTop: '10px' }}>TERM REPORT SHEET</h3>
-          </div>
-
-          <table style={{ width: '100%', marginBottom: '15px', fontSize: '14px' }}>
-            <tbody>
-              <tr>
-                <td><strong>Name:</strong> {studentInfo.full_name}</td>
-                <td><strong>Gender:</strong> {studentInfo.gender || '-'}</td>
-              </tr>
-              <tr>
-                <td><strong>Admission No:</strong> {studentInfo.admission_no}</td>
-                <td></td>
-              </tr>
-            </tbody>
-          </table>
-
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '15px' }}>
-            <thead>
-              <tr style={{ background: '#eee' }}>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>Subject</th>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>1st CA</th>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>2nd CA</th>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>Exam</th>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>Total</th>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>Class Highest</th>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>Grade</th>
-                <th style={{ border: '1px solid #000', padding: '5px' }}>Remark</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.subject_name}>
-                  <td style={{ border: '1px solid #000', padding: '5px' }}>{r.subject_name}</td>
-                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{r.ca1 ?? '-'}</td>
-                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{r.ca2 ?? '-'}</td>
-                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{r.exam ?? '-'}</td>
-                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{r.total}</td>
-                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{r.classHighest ?? '-'}</td>
-                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{r.grade}</td>
-                  <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{r.remark}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <p><strong>Grand Total:</strong> {grandTotal} &nbsp;&nbsp; <strong>Average:</strong> {average.toFixed(1)}%</p>
-
-          <table style={{ width: '100%', marginTop: '15px', fontSize: '13px' }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '6px', border: '1px solid #000', width: '30%' }}><strong>Class Teacher's Comment</strong></td>
-                <td style={{ padding: '6px', border: '1px solid #000' }}>{teacherComment || '-'}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '6px', border: '1px solid #000' }}><strong>Principal's Comment</strong></td>
-                <td style={{ padding: '6px', border: '1px solid #000' }}>{principalComment(average)}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p style={{ fontSize: '11px', textAlign: 'center', marginTop: '20px' }}>
-            This is a computer generated report sheet and is deemed authentic if devoid of alterations.
-          </p>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '15px' }}>
-            <div>
-              {school?.signature_url ? (
-                <img src={school.signature_url} alt="Principal's Signature" height={50} />
-              ) : (
-                <p style={{ margin: 0 }}>___________________</p>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8">
+          <div className="border-2 border-navy-900 rounded-lg p-6 bg-white">
+            <div className="text-center mb-4 border-b-2 border-gold-500 pb-4">
+              {school?.logo_url && <img src={school.logo_url} alt="School Logo" width={60} className="mx-auto mb-2" />}
+              <h2 className="font-display text-xl text-navy-900">{school?.school_name || 'School Name'}</h2>
+              {school?.address && <p className="text-xs text-slate mt-1">{school.address}</p>}
+              {(school?.phone || school?.email) && (
+                <p className="text-xs text-slate">{school?.phone && `Tel: ${school.phone}`} {school?.email && `| Email: ${school.email}`}</p>
               )}
-              <p style={{ margin: 0, fontSize: '12px' }}>Principal's Signature</p>
+              <h3 className="font-display text-sm text-gold-600 mt-2 tracking-wide">TERM REPORT SHEET</h3>
             </div>
-            <img src={qrImageUrl} alt="Verification QR Code" width={100} height={100} />
+
+            <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+              <p><strong>Name:</strong> {studentInfo.full_name}</p>
+              <p><strong>Gender:</strong> {studentInfo.gender || '-'}</p>
+              <p><strong>Admission No:</strong> {studentInfo.admission_no}</p>
+            </div>
+
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-navy-900 text-white">
+                    <th className="border border-navy-900 px-2 py-2 text-left">Subject</th>
+                    <th className="border border-navy-900 px-2 py-2">1st CA</th>
+                    <th className="border border-navy-900 px-2 py-2">2nd CA</th>
+                    <th className="border border-navy-900 px-2 py-2">Exam</th>
+                    <th className="border border-navy-900 px-2 py-2">Total</th>
+                    <th className="border border-navy-900 px-2 py-2">Class Highest</th>
+                    <th className="border border-navy-900 px-2 py-2">Grade</th>
+                    <th className="border border-navy-900 px-2 py-2">Remark</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.subject_name}>
+                      <td className="border border-gray-300 px-2 py-1.5">{r.subject_name}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-mono">{r.ca1 ?? '-'}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-mono">{r.ca2 ?? '-'}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-mono">{r.exam ?? '-'}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-mono font-semibold">{r.total}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-mono">{r.classHighest ?? '-'}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center font-semibold">{r.grade}</td>
+                      <td className="border border-gray-300 px-2 py-1.5 text-center">{r.remark}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-sm mb-3"><strong>Grand Total:</strong> {grandTotal} &nbsp;&nbsp; <strong>Average:</strong> {average.toFixed(1)}%</p>
+
+            <table className="w-full text-xs border-collapse mb-4">
+              <tbody>
+                <tr>
+                  <td className="border border-gray-300 px-2 py-2 w-1/3 bg-gray-50"><strong>Class Teacher's Comment</strong></td>
+                  <td className="border border-gray-300 px-2 py-2">{teacherComment || '-'}</td>
+                </tr>
+                <tr>
+                  <td className="border border-gray-300 px-2 py-2 bg-gray-50"><strong>Principal's Comment</strong></td>
+                  <td className="border border-gray-300 px-2 py-2">{principalComment(average)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p className="text-xs text-center text-slate mb-4">This is a computer generated report sheet and is deemed authentic if devoid of alterations.</p>
+
+            <div className="flex justify-between items-end">
+              <div>
+                {school?.signature_url ? <img src={school.signature_url} alt="Signature" height={50} /> : <p className="text-sm">___________________</p>}
+                <p className="text-xs text-slate">Principal's Signature</p>
+              </div>
+              <img src={qrImageUrl} alt="Verification QR" width={90} height={90} />
+            </div>
           </div>
         </div>
       )}
 
       <style jsx global>{`
         @media print {
-          .no-print {
-            display: none !important;
-          }
+          .no-print { display: none !important; }
         }
       `}</style>
     </div>
